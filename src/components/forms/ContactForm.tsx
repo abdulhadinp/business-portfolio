@@ -29,27 +29,37 @@ export default function ContactForm() {
     
     setIsSubmitting(true)
     
-    try {
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      })
-      
-      if (response.ok) {
-        setSubmitStatus('success')
-        setFormData({ name: '', email: '', subject: '', message: '', honeypot: '' })
-      } else {
-        setSubmitStatus('error')
-      }
-    } catch (error) {
-      setSubmitStatus('error')
-    } finally {
-      setIsSubmitting(false)
+   try {
+  const response = await fetch(
+    'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message,
+      }),
     }
+  )
+
+  const result = await response.json()
+
+  if (result.success) {
+    setSubmitStatus('success')
+    setFormData({ name: '', email: '', subject: '', message: '', honeypot: '' })
+  } else {
+    setSubmitStatus('error')
   }
+} catch (error) {
+  setSubmitStatus('error')
+} finally {
+  setIsSubmitting(false)
+}
+
 
   if (submitStatus === 'success') {
     return (
