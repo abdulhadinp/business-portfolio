@@ -18,21 +18,24 @@ export default function ContactForm() {
     setStatus('idle')
 
     try {
+      const formPayload = new FormData()
+      formPayload.append('name', name)
+      formPayload.append('email', email)
+      formPayload.append('subject', subject)
+      formPayload.append('message', message)
+
       const response = await fetch(
         'https://script.google.com/macros/s/AKfycbwKSMoUrcMTDra9CehdBB93ClzpgKT4myIW3ESH1OWvSjHLI5ggXXxu7sY_jYvwJMB0/exec',
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name,
-            email,
-            subject,
-            message,
-          }),
+          body: formPayload,
         }
       )
+
+      if (!response.ok) {
+      throw new Error('Request failed')
+    }
+
 
       // IMPORTANT: Apps Script may not always return JSON reliably
       if (!response.ok) {
