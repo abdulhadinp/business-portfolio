@@ -1,255 +1,86 @@
-'use client'
+import { Metadata } from 'next'
+import ContactForm from '@/components/forms/ContactForm'
 
-import React, { useMemo, useState } from 'react'
-
-/**
- * ✅ Replace with your Google Apps Script Web App URL (must end with /exec)
- * Example: https://script.google.com/macros/s/AKfycbXXXXXXXXXXXX/exec
- */
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwKSMoUrcMTDra9CehdBB93ClzpgKT4myIW3ESH1OWvSjHLI5ggXXxu7sY_jYvwJMB0/exec'
-
-type FormState = {
-  name: string
-  email: string
-  subject: string
-  message: string
-  // Honeypot field (bots fill it, humans won't)
-  company?: string
+export const metadata: Metadata = {
+  title: 'Contact - Abdul Hadi',
+  description: 'Get in touch with Abdul Hadi for project inquiries, collaborations, or technical consulting.',
 }
 
-export default function ContactForm() {
-  const [form, setForm] = useState<FormState>({
-    name: '',
-    email: '',
-    subject: '',
-    message: '',
-    company: '',
-  })
-
-  const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
-  const [statusMsg, setStatusMsg] = useState<string>('')
-
-  const isConfigured = useMemo(() => {
-    return APPS_SCRIPT_URL && APPS_SCRIPT_URL.startsWith('https://script.google.com/macros/s/') && APPS_SCRIPT_URL.endsWith('/exec')
-  }, [])
-
-  function onChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) {
-    const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
-  }
-
-  function validateEmail(email: string) {
-    // Simple, practical validation
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-
-    setStatus('idle')
-    setStatusMsg('')
-
-    if (!isConfigured) {
-      setStatus('error')
-      setStatusMsg('Apps Script URL is not set correctly. Please paste your /exec URL in ContactForm.tsx.')
-      return
-    }
-
-    // Honeypot check
-    if (form.company && form.company.trim().length > 0) {
-      // silently pretend success (anti-spam)
-      setStatus('success')
-      setStatusMsg('Message sent successfully.')
-      setForm({ name: '', email: '', subject: '', message: '', company: '' })
-      return
-    }
-
-    const name = form.name.trim()
-    const email = form.email.trim()
-    const subject = form.subject.trim()
-    const message = form.message.trim()
-
-    if (!name || !email || !subject || !message) {
-      setStatus('error')
-      setStatusMsg('Please fill in all fields.')
-      return
-    }
-
-    if (!validateEmail(email)) {
-      setStatus('error')
-      setStatusMsg('Please enter a valid email address.')
-      return
-    }
-
-    // Basic rate-limiting on client (not perfect, but helps)
-    // You can remove if you don't want it.
-    const lastSent = Number(localStorage.getItem('contact_last_sent') || '0')
-    const now = Date.now()
-    if (now - lastSent < 15_000) {
-      setStatus('error')
-      setStatusMsg('Please wait a few seconds before sending again.')
-      return
-    }
-
-    setStatus('sending')
-    setStatusMsg('Sending...')
-
-    try {
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        // Apps Script expects JSON in e.postData.contents
-        body: JSON.stringify({ name, email, subject, message }),
-      })
-
-      // Apps Script often returns JSON text output
-      const text = await res.text()
-
-      let parsed: any = null
-      try {
-        parsed = JSON.parse(text)
-      } catch {
-        // If it isn't valid JSON, still treat as failure with readable output
-        parsed = null
-      }
-
-      if (!res.ok) {
-        setStatus('error')
-        setStatusMsg(`Failed to send. Server responded with status ${res.status}.`)
-        return
-      }
-
-      if (parsed?.success === true) {
-        localStorage.setItem('contact_last_sent', String(Date.now()))
-        setStatus('success')
-        setStatusMsg('✅ Message sent successfully! I will reply soon.')
-        setForm({ name: '', email: '', subject: '', message: '', company: '' })
-        return
-      }
-
-      // Fallback: if Apps Script returns non-standard response but 200 OK
-      if (res.ok && (!parsed || parsed.success === undefined)) {
-        localStorage.setItem('contact_last_sent', String(Date.now()))
-        setStatus('success')
-        setStatusMsg('✅ Message sent successfully!')
-        setForm({ name: '', email: '', subject: '', message: '', company: '' })
-        return
-      }
-
-      setStatus('error')
-      setStatusMsg(parsed?.error ? `Error: ${parsed.error}` : 'Something went wrong. Please try again.')
-    } catch (err: any) {
-      setStatus('error')
-      setStatusMsg('Network error. Please try again later.')
-    }
-  }
-
+export default function ContactPage() {
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Honeypot field (hidden) */}
-      <input
-        type="text"
-        name="company"
-        value={form.company || ''}
-        onChange={onChange}
-        autoComplete="off"
-        tabIndex={-1}
-        className="hidden"
-        aria-hidden="true"
-      />
-
-      <div className="grid grid-cols-1 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-200 mb-2">
-            Name
-          </label>
-          <input
-            type="text"
-            name="name"
-            value={form.name}
-            onChange={onChange}
-            placeholder="Your name"
-            className="w-full rounded-xl bg-black/40 border border-gray-700 px-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-200 mb-2">
-            Email
-          </label>
-          <input
-            type="email"
-            name="email"
-            value={form.email}
-            onChange={onChange}
-            placeholder="you@example.com"
-            className="w-full rounded-xl bg-black/40 border border-gray-700 px-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-200 mb-2">
-            Subject
-          </label>
-          <input
-            type="text"
-            name="subject"
-            value={form.subject}
-            onChange={onChange}
-            placeholder="What is this about?"
-            className="w-full rounded-xl bg-black/40 border border-gray-700 px-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/60"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-200 mb-2">
-            Message
-          </label>
-          <textarea
-            name="message"
-            value={form.message}
-            onChange={onChange}
-            placeholder="Write your message..."
-            rows={6}
-            className="w-full rounded-xl bg-black/40 border border-gray-700 px-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60 resize-none"
-          />
-        </div>
+    <div className="relative bg-black text-white min-h-screen">
+      {/* Background effects */}
+      <div className="fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-black"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
       </div>
 
-      {/* Status message */}
-      {status !== 'idle' && (
-        <div
-          className={[
-            'rounded-xl border px-4 py-3 text-sm',
-            status === 'success'
-              ? 'border-green-500/40 bg-green-500/10 text-green-200'
-              : status === 'error'
-              ? 'border-red-500/40 bg-red-500/10 text-red-200'
-              : 'border-blue-500/40 bg-blue-500/10 text-blue-200',
-          ].join(' ')}
-        >
-          {statusMsg}
+      <div className="relative z-10 py-24 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="text-center mb-16">
+            <h1 className="text-5xl sm:text-6xl font-bold mb-6">
+              <span className="bg-gradient-to-r from-white via-blue-200 to-purple-200 bg-clip-text text-transparent">
+                Get in Touch
+              </span>
+            </h1>
+            <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+              I'm always interested in hearing about new projects, opportunities, or collaborations. 
+              Whether you have a specific project in mind or just want to chat about technology, feel free to reach out.
+            </p>
+          </div>
+          
+          <div className="mx-auto max-w-xl">
+            <div className="p-12 bg-gradient-to-br from-gray-900/50 to-gray-800/50 border border-gray-800 rounded-3xl">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold mb-4">
+                  <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                    Send me a message
+                  </span>
+                </h2>
+                <p className="text-gray-300">
+                  Fill out the form below and I'll get back to you as soon as possible.
+                </p>
+              </div>
+              
+              <ContactForm />
+            </div>
+          </div>
+
+          {/* Contact Information */}
+          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center p-8 bg-gradient-to-br from-gray-900/50 to-gray-800/50 border border-gray-800 rounded-2xl">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Email</h3>
+              <p className="text-gray-300">hello@abdulhadi.com</p>
+            </div>
+
+            <div className="text-center p-8 bg-gradient-to-br from-gray-900/50 to-gray-800/50 border border-gray-800 rounded-2xl">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Location</h3>
+              <p className="text-gray-300">Kathmandu, Nepal</p>
+            </div>
+
+            <div className="text-center p-8 bg-gradient-to-br from-gray-900/50 to-gray-800/50 border border-gray-800 rounded-2xl">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Response Time</h3>
+              <p className="text-gray-300">Usually within 24 hours</p>
+            </div>
+          </div>
         </div>
-      )}
-
-      <button
-        type="submit"
-        disabled={status === 'sending'}
-        className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-3 font-semibold text-white transition-opacity hover:opacity-95 disabled:opacity-60"
-      >
-        {status === 'sending' ? 'Sending...' : 'Send Message'}
-      </button>
-
-      {/* Helpful hint during setup */}
-      {!isConfigured && (
-        <p className="text-xs text-yellow-300/90">
-          Setup required: Paste your Google Apps Script Web App URL (ending with <b>/exec</b>) into <b>APPS_SCRIPT_URL</b>.
-        </p>
-      )}
-    </form>
+      </div>
+    </div>
   )
 }
