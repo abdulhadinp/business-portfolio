@@ -24,13 +24,10 @@ export default function ContactForm() {
       formPayload.append('subject', subject)
       formPayload.append('message', message)
 
-      const response = await fetch(
-        'https://script.google.com/macros/s/AKfycbwKSMoUrcMTDra9CehdBB93ClzpgKT4myIW3ESH1OWvSjHLI5ggXXxu7sY_jYvwJMB0/exec',
-        {
-          method: 'POST',
-          body: formPayload,
-        }
-      )
+      const response = await fetch('https://script.google.com/macros/s/AKfycbwKSMoUrcMTDra9CehdBB93ClzpgKT4myIW3ESH1OWvSjHLI5ggXXxu7sY_jYvwJMB0/exec',{
+        method: 'POST',
+        body: formPayload,
+      })
 
       if (!response.ok) {
       throw new Error('Request failed')
